@@ -9,7 +9,7 @@
 #include <SPI.h>
 using namespace BLA;
 float kalmanAltitude, kalmanVerticalVelocity;
-float timestep = 0.005;
+float timestep = 0.001;
 BLA::Matrix<2, 2, float> sstateTransitionMatrix;
 BLA::Matrix<2, 2, float> predictionUncertaintyVector;
 BLA::Matrix<2, 1, float> stateVector;
@@ -210,7 +210,7 @@ void PrintData()
   Serial.print(accelZ); Serial.print("g ");
   Serial.print(kalmanPitch); Serial.print("' ");
   Serial.print(kalmanRoll); Serial.print("' ");
-  Serial.print(kalmanVerticalVelocity); Serial.println("m/stateVector ");
+  Serial.print(kalmanVerticalVelocity); Serial.println("m/s ");
 }
 
 void LogData()
@@ -276,8 +276,8 @@ void loop()
   Kalman1d(kalmanPitch, kalmanUncertaintyPitch, pitchRate, pitch);
   kalmanPitch = kalman1DOutput[0];
   kalmanUncertaintyPitch = kalman1DOutput[1];
-  accelZInertial = -sin(kalmanPitch * 3.142/180) * accelX + cos(kalmanPitch * 3.142/180) * sin(kalmanRoll * 3.142/180) * accelY + cos(kalmanPitch * 3.142/180) * cos(kalmanRoll * 3.142/180) * accelZ;
-  //accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
+  //accelZInertial = -sin(kalmanPitch * 3.142/180) * accelX + cos(kalmanPitch * 3.142/180) * sin(kalmanRoll * 3.142/180) * accelY + cos(kalmanPitch * 3.142/180) * cos(kalmanRoll * 3.142/180) * accelZ;
+  accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
   accelZInertial = (accelZInertial - 1) * 9.81;
   kalman2d();
 
