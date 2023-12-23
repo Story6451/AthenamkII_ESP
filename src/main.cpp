@@ -1,10 +1,8 @@
 #include <ESP32Servo.h>
-//#include <Arduino.h>
 #include <SD.h>
 #include <LPS.h>
 #include <MyLSM6.h>
 #include <BasicLinearAlgebra.h>
-//#include <LIS3MDL.h> WE DONT NEED YAW DATA ANYWAY GRRR
 #include <Wire.h>
 #include <SPI.h>
 using namespace BLA;
@@ -28,7 +26,6 @@ BLA::Matrix<1, 1, float> measurementVector;
 
 LPS barometer;
 LSM6 imu;
-//LIS3MDL compass;
 File fileHandler;
 
 Servo servo;
@@ -68,43 +65,51 @@ void PeripheralInitialisation()
     error = true;
   }
   barometer.enableDefault();
-  /*
-  if (compass.init() == false)
-  {
-    Serial.print("Failed to initialise compass");
-  }
-  compass.enableDefault();
-  */
 }
 
 void SDCheck()
 {
-  
-  fileHandler = SD.open("DATA.txt", FILE_WRITE);
-  if (fileHandler == true)
+  if (SD.begin(8) == true)
   {
-    fileHandler.print("Starting Altitude/m:,");
-    fileHandler.print("Time/ms,");
-    fileHandler.print("Max Relative Altitude/m,");
-    fileHandler.print("Altitude/m,");
-    fileHandler.print("Kalman Altitude/m,");
-    fileHandler.print("Pressure/Pa,");
-    fileHandler.print("Temperature/'C,");
-    fileHandler.print("AccelerationX/g,");
-    fileHandler.print("AccelerationY/g,");
-    fileHandler.print("AccelerationZ/g,");
-    fileHandler.print("Pitch,");
-    fileHandler.print("Roll,");
-    fileHandler.print("Inertial Vertical Acceleration,");
-    fileHandler.println("Kalman Vertical Velocity,");
-    Serial.println("file present");
+
+    fileHandler = SD.open("DATA.txt", FILE_WRITE);
+    if (fileHandler == true)
+    {
+      fileHandler.print("Starting Altitude/m:,");
+      fileHandler.print("Time/ms,");
+      fileHandler.print("Max Relative Altitude/m,");
+      fileHandler.print("Altitude/m,");
+      fileHandler.print("Kalman Altitude/m,");
+      fileHandler.print("Pressure/Pa,");
+      fileHandler.print("Temperature/'C,");
+      fileHandler.print("AccelerationX/g,");
+      fileHandler.print("AccelerationY/g,");
+      fileHandler.print("AccelerationZ/g,");
+      fileHandler.print("Pitch,");
+      fileHandler.print("Roll,");
+      fileHandler.print("Inertial Vertical Acceleration,");
+      fileHandler.println("Kalman Vertical Velocity,");
+      Serial.println("file present");
+    }
+    else
+    {
+      filePresent = false;
+      digitalWrite(warningLED, HIGH);
+      while(true)
+      {
+        Serial.println("file not present");
+      }
+    }
+    fileHandler.close();
   }
   else
   {
-    filePresent = false;
-    Serial.println("file not present");
+    digitalWrite(warningLED, HIGH);
+    while(true)
+    {
+      Serial.println("Card reader not working");
+    }
   }
-  fileHandler.close();
   
 }
 
@@ -168,11 +173,14 @@ void setup()
   ServoSetup();
   DefineMatrices();
 
+
+  
   if (error == true)
   {
     while(true)
     {
       digitalWrite(warningLED, HIGH);
+      Serial.println("Sensor failure");
     }
   }
 
@@ -200,9 +208,9 @@ void setup()
 void ReadIMU()
 {
   imu.read();
-  accelX = imu.a.x * 0.000476;
-  accelY = imu.a.y * 0.000476; 
-  accelZ = imu.a.z * 0.000476;
+  accelX = imu.a.x * 0.000488;
+  accelY = imu.a.y * 0.000488; 
+  accelZ = imu.a.z * 0.000488;
   pitchRate = imu.g.x * 0.00875;
   rollRate = imu.g.y * 0.00875;
   yawRate = imu.g.z * 0.00875;
