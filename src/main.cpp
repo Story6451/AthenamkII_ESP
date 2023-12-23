@@ -126,7 +126,7 @@ void DefineMatrices()
 {
   sstateTransitionMatrix = {
     1,  timestep,
-    0,  1unityMatrix
+    0,  1
   };  
 
   controlMatrix = {
