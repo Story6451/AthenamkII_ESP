@@ -69,7 +69,7 @@ void PeripheralInitialisation()
 
 void SDCheck()
 {
-  if (SD.begin(8) == true)
+  if (SD.begin(21) == true)
   {
 
     fileHandler = SD.open("DATA.txt", FILE_WRITE);
