@@ -1,10 +1,13 @@
 #include <ESP32Servo.h>
-#include <SD.h>
+//#include <SD.h>
 #include <LPS.h>
 #include <MyLSM6.h>
 #include <BasicLinearAlgebra.h>
 #include <Wire.h>
+//#include <SPI.h>
+#include <SD.h>
 #include <SPI.h>
+#include <ESPFIleHandler.h>
 using namespace BLA;
 
 const uint8_t warningLED = 1;
@@ -27,6 +30,7 @@ BLA::Matrix<1, 1, float> measurementVector;
 LPS barometer;
 LSM6 imu;
 File fileHandler;
+//ESPFileHandler fileHandler;
 
 Servo servo;
 
@@ -71,8 +75,20 @@ void SDCheck()
 {
   if (SD.begin(21) == true)
   {
-
-    fileHandler = SD.open("DATA.txt", FILE_WRITE);
+    /*
+    */
+    /*
+    {
+      fileHandler.DeleteFile(SD, "/DATA.txt");
+      fileHandler.WriteFile(SD, "/DATA.txt", "Starting Altitude/m:,");
+    }
+    else
+    {
+      error = true;
+    }
+    */
+    
+    fileHandler = SD.open("/DATA.txt", FILE_WRITE);
     if (fileHandler == true)
     {
       fileHandler.print("Starting Altitude/m:,");
@@ -94,21 +110,29 @@ void SDCheck()
     else
     {
       filePresent = false;
+      /*
       digitalWrite(warningLED, HIGH);
       while(true)
       {
         Serial.println("file not present");
       }
+      
+     error = true;
+     */
     }
     fileHandler.close();
+    
   }
   else
   {
+    /*
     digitalWrite(warningLED, HIGH);
     while(true)
     {
       Serial.println("Card reader not working");
     }
+    */
+    error = true;
   }
   
 }
@@ -174,17 +198,17 @@ void setup()
   DefineMatrices();
 
 
-  
+
+
   if (error == true)
   {
     while(true)
     {
       digitalWrite(warningLED, HIGH);
-      Serial.println("Sensor failure");
+      Serial.print((float)SD.cardSize()/(1024*1024*1024)); Serial.print(" "); Serial.println(SD.cardType());
     }
   }
 
-  delay(500);
   Serial.print("Starting Altitude/m,");
   Serial.print("Time/ms,");
   Serial.print("MaxAltitude/m");
@@ -197,10 +221,8 @@ void setup()
   Serial.print("AccelerationZ/g,");
   Serial.print("Pitch/',");
   Serial.print("Roll/',");
-  Serial.println("Inertial Verical Acceleration/ms^-2");
+  Serial.print("Inertial Verical Acceleration/ms^-2");
   Serial.println("Verical Velocity/ms^-1");
-
-
 
   startingAltitude = altitude;
 }
@@ -248,8 +270,10 @@ void PrintData()
 
 void LogData()
 {
+  //fileHandler.AppendFile(SD, "/DATA.txt", (const char *)millis());
+  //fileHandler.AppendFile(SD, "/DATA.txt", ",\n");
   
-  fileHandler = SD.open("DATA.txt", FILE_WRITE);
+  fileHandler = SD.open("/DATA.txt", FILE_WRITE);
   if (fileHandler == true)
   {
     fileHandler.print(startingAltitude); fileHandler.print(",");
@@ -272,6 +296,7 @@ void LogData()
     filePresent = false;
   }
   fileHandler.close();
+  
   
 }
 
@@ -323,7 +348,7 @@ void loop()
 
     ReadIMU();
     ReadBarometer();
-    ReadCompass();
+
 
     Kalman1d(kalmanRoll, kalmanUncertaintyRoll, rollRate, roll);
     kalmanRoll = kalman1DOutput[0];
@@ -332,10 +357,8 @@ void loop()
     kalmanPitch = kalman1DOutput[0];
     kalmanUncertaintyPitch = kalman1DOutput[1];
 
-    //accelZInertial = -sin(kalmanPitch * 3.142/180) * accelX + cos(kalmanPitch * 3.142/180) * sin(kalmanRoll * 3.142/180) * accelY + cos(kalmanPitch * 3.142/180) * cos(kalmanRoll * 3.142/180) * accelZ;
     accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
     accelZInertial = (accelZInertial - 1) * 9.81;
-    //accelZInertial = (accelZ - 1) * 9.81;
     kalman2d();
 
     if (launched == true)
