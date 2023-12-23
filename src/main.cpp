@@ -16,7 +16,7 @@ float kalmanAltitude, kalmanVerticalVelocity;
 BLA::Matrix<2, 2, float> sstateTransitionMatrix;
 BLA::Matrix<2, 2, float> predictionUncertaintyVector;
 BLA::Matrix<2, 1, float> stateVector;
-BLA::Matrix<2, 2, float> unityMatrix;
+BLA::Matrix<2, 2, float> unitMatrix;
 BLA::Matrix<2, 1, float> kalmanGain;
 BLA::Matrix<1, 1, float> pintermediateMatrix;
 BLA::Matrix<2, 1, float> controlMatrix;
@@ -126,7 +126,7 @@ void DefineMatrices()
 {
   sstateTransitionMatrix = {
     1,  timestep,
-    0,  1
+    0,  1unityMatrix
   };  
 
   controlMatrix = {
@@ -136,7 +136,7 @@ void DefineMatrices()
 
   observationMatrix = {1, 0};
 
-  unityMatrix = {
+  unitMatrix = {
     1,  0,
     0,  1
   };
@@ -304,7 +304,7 @@ void kalman2d()
 
   kalmanVerticalVelocity = stateVector(1, 0);
 
-  predictionUncertaintyVector = (unityMatrix - kalmanGain * observationMatrix) * predictionUncertaintyVector;
+  predictionUncertaintyVector = (unitMatrix - kalmanGain * observationMatrix) * predictionUncertaintyVector;
 }
 
 uint64_t loopTimer = 0;
