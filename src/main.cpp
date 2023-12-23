@@ -1,6 +1,6 @@
 #include <ESP32Servo.h>
 //#include <Arduino.h>
-//#include <SD.h>
+#include <SD.h>
 #include <LPS.h>
 #include <MyLSM6.h>
 #include <BasicLinearAlgebra.h>
@@ -8,8 +8,11 @@
 #include <Wire.h>
 #include <SPI.h>
 using namespace BLA;
+
+const uint8_t warningLED = 1;
+const float timestep = 0.001;
+
 float kalmanAltitude, kalmanVerticalVelocity;
-float timestep = 0.001;
 BLA::Matrix<2, 2, float> sstateTransitionMatrix;
 BLA::Matrix<2, 2, float> predictionUncertaintyVector;
 BLA::Matrix<2, 1, float> stateVector;
@@ -26,7 +29,7 @@ BLA::Matrix<1, 1, float> measurementVector;
 LPS barometer;
 LSM6 imu;
 //LIS3MDL compass;
-//File fileHandler;
+File fileHandler;
 
 Servo servo;
 
@@ -43,22 +46,26 @@ float maxAltitude = 0;
 float startingAltitude = 0;
 uint64_t launchTime;
 
+
 bool SDPresent = false;
 bool launched = false;
 bool filePresent = true;
-
+bool apogee = false;
+bool error = false;
 
 void PeripheralInitialisation()
 {
   if (imu.init() == false)
   {
     Serial.print("Failed to initialise imu");
+    error = true;
   }
   imu.enableHighSensitivity();
 
   if (barometer.init() == false)
   {
     Serial.print("Failed to initialise barometer");
+    error = true;
   }
   barometer.enableDefault();
   /*
@@ -72,23 +79,24 @@ void PeripheralInitialisation()
 
 void SDCheck()
 {
-  /*
-  fileHandler = SD.open("DATA.txt", FILE_WRITE | O_TRUNC);
+  
+  fileHandler = SD.open("DATA.txt", FILE_WRITE);
   if (fileHandler == true)
   {
-    fileHandler.print("Starting Altitude/m:,"); fileHandler.println(startingAltitude);
+    fileHandler.print("Starting Altitude/m:,");
     fileHandler.print("Time/ms,");
+    fileHandler.print("Max Relative Altitude/m,");
     fileHandler.print("Altitude/m,");
-    fileHandler.print("Relative Altitude/m,");
+    fileHandler.print("Kalman Altitude/m,");
     fileHandler.print("Pressure/Pa,");
     fileHandler.print("Temperature/'C,");
     fileHandler.print("AccelerationX/g,");
     fileHandler.print("AccelerationY/g,");
     fileHandler.print("AccelerationZ/g,");
-    fileHandler.print("GyroscopeX,");
-    fileHandler.print("GyroscopeY,");
-    fileHandler.print("GyroscopeZ,");
-    fileHandler.println("Heading,");
+    fileHandler.print("Pitch,");
+    fileHandler.print("Roll,");
+    fileHandler.print("Inertial Vertical Acceleration,");
+    fileHandler.println("Kalman Vertical Velocity,");
     Serial.println("file present");
   }
   else
@@ -97,7 +105,7 @@ void SDCheck()
     Serial.println("file not present");
   }
   fileHandler.close();
-  */
+  
 }
 
 void ServoSetup()
@@ -150,17 +158,26 @@ void DefineMatrices()
 
 void setup() 
 {
+  pinMode(warningLED, OUTPUT);
+  digitalWrite(warningLED, LOW);
   Serial.begin(9600);
   Wire.begin();
   PeripheralInitialisation();
   ReadBarometer();
-  startingAltitude = altitude;
   SDCheck();
   ServoSetup();
   DefineMatrices();
 
+  if (error == true)
+  {
+    while(true)
+    {
+      digitalWrite(warningLED, HIGH);
+    }
+  }
 
   delay(500);
+  Serial.print("Starting Altitude/m,");
   Serial.print("Time/ms,");
   Serial.print("MaxAltitude/m");
   Serial.print("Altitude/m,");
@@ -172,9 +189,12 @@ void setup()
   Serial.print("AccelerationZ/g,");
   Serial.print("Pitch/',");
   Serial.print("Roll/',");
+  Serial.println("Inertial Verical Acceleration/ms^-2");
   Serial.println("Verical Velocity/ms^-1");
 
 
+
+  startingAltitude = altitude;
 }
 
 void ReadIMU()
@@ -198,8 +218,12 @@ void ReadCompass()
 
 void PrintData()
 {
-  
-  Serial.print(millis()); Serial.print("ms ");
+  if (apogee == true)
+  {
+    Serial.print("APOGEE!!! ");
+  }
+  Serial.print(startingAltitude); Serial.print("m ");
+  Serial.print(millis() -launchTime); Serial.print("ms ");
   Serial.print(maxAltitude); Serial.print("m ");
   Serial.print(altitude); Serial.print("m ");
   Serial.print(kalmanAltitude); Serial.print("m ");
@@ -210,107 +234,149 @@ void PrintData()
   Serial.print(accelZ); Serial.print("g ");
   Serial.print(kalmanPitch); Serial.print("' ");
   Serial.print(kalmanRoll); Serial.print("' ");
+  Serial.print(accelZInertial); Serial.print("m/s^2 ");
   Serial.print(kalmanVerticalVelocity); Serial.println("m/s ");
 }
 
 void LogData()
 {
-  /*
+  
   fileHandler = SD.open("DATA.txt", FILE_WRITE);
   if (fileHandler == true)
   {
-    fileHandler.print(millis() - launchTime); fileHandler.print(",");
+    fileHandler.print(startingAltitude); fileHandler.print(",");
+    fileHandler.print(millis() -launchTime); fileHandler.print(",");
+    fileHandler.print(maxAltitude); fileHandler.print(",");
     fileHandler.print(altitude); fileHandler.print(",");
-    fileHandler.print(altitude - startingAltitude); fileHandler.print(",");
+    fileHandler.print(kalmanAltitude); fileHandler.print(",");
     fileHandler.print(pressure); fileHandler.print(",");
     fileHandler.print(temperature); fileHandler.print(",");
     fileHandler.print(accelX); fileHandler.print(",");
     fileHandler.print(accelY); fileHandler.print(",");
     fileHandler.print(accelZ); fileHandler.print(",");
-    fileHandler.print(pitch); fileHandler.print(",");
-    fileHandler.print(roll); fileHandler.print(",");
-    fileHandler.print(yaw); fileHandler.println(",");
+    fileHandler.print(kalmanPitch); fileHandler.print(",");
+    fileHandler.print(kalmanRoll); fileHandler.print(",");
+    fileHandler.print(accelZInertial); fileHandler.print(",");
+    fileHandler.print(kalmanVerticalVelocity); fileHandler.println(",");
   }
   else
   {
     filePresent = false;
   }
   fileHandler.close();
-  */
+  
 }
 
 void Kalman1d(float kalmanState, float kalmanUncertainty, float kalmanInput, float kalmanMeasurement)
 {
   kalmanState = kalmanState + timestep * kalmanInput;
+
   kalmanUncertainty = kalmanUncertainty + timestep * timestep * 4 * 4;
+
   float kalmanGain = kalmanUncertainty * 1/(kalmanUncertainty + 3 * 3);
+
   kalmanState = kalmanState + kalmanGain * (kalmanMeasurement - kalmanState);
+
   kalmanUncertainty = (1 - kalmanGain) * kalmanUncertainty;
+  
   kalman1DOutput[0] = kalmanState;
+
   kalman1DOutput[1] = kalmanUncertainty;
 }
 
 void kalman2d()
 {
   Acc = {accelZInertial};
+
   stateVector = sstateTransitionMatrix * stateVector + controlMatrix * Acc;
+
   predictionUncertaintyVector = sstateTransitionMatrix * predictionUncertaintyVector * ~sstateTransitionMatrix + processUncertainty;
+
   pintermediateMatrix = observationMatrix * predictionUncertaintyVector * ~observationMatrix + measurementUncertainty;
+
   kalmanGain = predictionUncertaintyVector * ~observationMatrix * Inverse(pintermediateMatrix);
+
   measurementVector = {(altitude-startingAltitude)};
+
   stateVector = stateVector + kalmanGain * (measurementVector - observationMatrix * stateVector);
+
   kalmanAltitude = stateVector(0, 0);
+
   kalmanVerticalVelocity = stateVector(1, 0);
+
   predictionUncertaintyVector = (unityMatrix - kalmanGain * observationMatrix) * predictionUncertaintyVector;
 }
 
 uint64_t loopTimer = 0;
 void loop() 
 {
-  ReadIMU();
-  ReadBarometer();
-  ReadCompass();
-  Kalman1d(kalmanRoll, kalmanUncertaintyRoll, rollRate, roll);
-  kalmanRoll = kalman1DOutput[0];
-  kalmanUncertaintyRoll = kalman1DOutput[1];
-  Kalman1d(kalmanPitch, kalmanUncertaintyPitch, pitchRate, pitch);
-  kalmanPitch = kalman1DOutput[0];
-  kalmanUncertaintyPitch = kalman1DOutput[1];
-  //accelZInertial = -sin(kalmanPitch * 3.142/180) * accelX + cos(kalmanPitch * 3.142/180) * sin(kalmanRoll * 3.142/180) * accelY + cos(kalmanPitch * 3.142/180) * cos(kalmanRoll * 3.142/180) * accelZ;
-  accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
-  accelZInertial = (accelZInertial - 1) * 9.81;
-  kalman2d();
-
-  if (launched == true)
+  if (error == false)
   {
-    PrintData();
 
+    ReadIMU();
+    ReadBarometer();
+    ReadCompass();
 
-    if (filePresent == true)
+    Kalman1d(kalmanRoll, kalmanUncertaintyRoll, rollRate, roll);
+    kalmanRoll = kalman1DOutput[0];
+    kalmanUncertaintyRoll = kalman1DOutput[1];
+    Kalman1d(kalmanPitch, kalmanUncertaintyPitch, pitchRate, pitch);
+    kalmanPitch = kalman1DOutput[0];
+    kalmanUncertaintyPitch = kalman1DOutput[1];
+
+    //accelZInertial = -sin(kalmanPitch * 3.142/180) * accelX + cos(kalmanPitch * 3.142/180) * sin(kalmanRoll * 3.142/180) * accelY + cos(kalmanPitch * 3.142/180) * cos(kalmanRoll * 3.142/180) * accelZ;
+    accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
+    accelZInertial = (accelZInertial - 1) * 9.81;
+    //accelZInertial = (accelZ - 1) * 9.81;
+    kalman2d();
+
+    if (launched == true)
     {
-      LogData();
+      PrintData();
+
+
+      if (filePresent == true)
+      {
+        LogData();
+      }
+
+      if (kalmanAltitude > maxAltitude)
+      {
+        maxAltitude = kalmanAltitude;
+      }
+
+      
+      if ((kalmanAltitude < (maxAltitude - 0.2)) && ((kalmanVerticalVelocity < 1)))
+      {
+        apogee = true;
+
+        servo.write(90);
+      }
+    }
+    else if (accelZ > 1.5)
+    {
+      launched = true;
+      launchTime = millis();
+      startingAltitude = altitude;
+
+      if ((kalmanAltitude > 1000) || (kalmanAltitude < -1000))
+      {
+        error = true;
+      }
+      if ((kalmanVerticalVelocity > 400) || (kalmanVerticalVelocity < -400))
+      {
+        error = true;
+      }
     }
 
-    if ((millis - launchTime))
-    if (kalmanAltitude > maxAltitude)
+    while ((micros() - loopTimer) < timestep * 1000000);
     {
-      maxAltitude = kalmanAltitude;
-    }
-
-    if ((kalmanAltitude < (maxAltitude-0.5)) && ((kalmanVerticalVelocity > -1) && (kalmanVerticalVelocity < 1)))
-    {
-      //Serial.println("RECOVER!!!");
-      servo.write(90);
+      loopTimer = micros();
     }
   }
-  else if (accelZ > 1.5)
+  else
   {
-    launched = true;
-    launchTime = millis();
-  }
-
-  while ((micros() - loopTimer) < timestep * 1000000);
-  {
-    loopTimer = micros();
+    digitalWrite(warningLED, HIGH);
+    Serial.println("ERROR");
   }
 }
