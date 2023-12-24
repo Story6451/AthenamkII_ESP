@@ -10,7 +10,7 @@ using namespace BLA;
 
 const uint8_t warningLED = 1;
 const float timestep = 0.001;
-const float apogeeSensitivity = 0.05;
+const float apogeeSensitivity = 0.1;
 
 float kalmanAltitude, kalmanVerticalVelocity;
 BLA::Matrix<2, 2, float> sstateTransitionMatrix;
@@ -345,7 +345,7 @@ void loop()
       }
 
       
-      if ((kalmanAltitude < (maxAltitude - 0.05)) && ((kalmanVerticalVelocity < 1)))
+      if ((kalmanAltitude < (maxAltitude - apogeeSensitivity)) && ((kalmanVerticalVelocity < 1)))
       {
         apogee = true;
 
