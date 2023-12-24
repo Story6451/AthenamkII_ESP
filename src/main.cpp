@@ -1,13 +1,10 @@
 #include <ESP32Servo.h>
-//#include <SD.h>
 #include <LPS.h>
 #include <MyLSM6.h>
 #include <BasicLinearAlgebra.h>
 #include <Wire.h>
-//#include <SPI.h>
 #include <SD.h>
 #include <SPI.h>
-#include <ESPFIleHandler.h>
 using namespace BLA;
 
 const uint8_t warningLED = 1;
@@ -30,7 +27,6 @@ BLA::Matrix<1, 1, float> measurementVector;
 LPS barometer;
 LSM6 imu;
 File fileHandler;
-//ESPFileHandler fileHandler;
 
 Servo servo;
 
@@ -46,7 +42,7 @@ float kalman1DOutput[] = {0, 0};
 float maxAltitude = 0;
 float startingAltitude = 0;
 uint64_t launchTime;
-
+uint64_t lastLogged = 0;
 
 bool SDPresent = false;
 bool launched = false;
@@ -75,19 +71,6 @@ void SDCheck()
 {
   if (SD.begin(21) == true)
   {
-    /*
-    */
-    /*
-    {
-      fileHandler.DeleteFile(SD, "/DATA.txt");
-      fileHandler.WriteFile(SD, "/DATA.txt", "Starting Altitude/m:,");
-    }
-    else
-    {
-      error = true;
-    }
-    */
-    
     fileHandler = SD.open("/DATA.txt", FILE_WRITE);
     if (fileHandler == true)
     {
@@ -110,28 +93,12 @@ void SDCheck()
     else
     {
       filePresent = false;
-      /*
-      digitalWrite(warningLED, HIGH);
-      while(true)
-      {
-        Serial.println("file not present");
-      }
-      
-     error = true;
-     */
     }
     fileHandler.close();
     
   }
   else
   {
-    /*
-    digitalWrite(warningLED, HIGH);
-    while(true)
-    {
-      Serial.println("Card reader not working");
-    }
-    */
     error = true;
   }
   
@@ -242,10 +209,6 @@ void ReadIMU()
   roll = atan(accelY/(sqrt(accelX * accelX + accelZ * accelZ))) * 180/PI;
 }
 
-void ReadCompass()
-{
-}
-
 void PrintData()
 {
   if (apogee == true)
@@ -270,32 +233,35 @@ void PrintData()
 
 void LogData()
 {
-  //fileHandler.AppendFile(SD, "/DATA.txt", (const char *)millis());
-  //fileHandler.AppendFile(SD, "/DATA.txt", ",\n");
   
-  fileHandler = SD.open("/DATA.txt", FILE_WRITE);
-  if (fileHandler == true)
+  if ((millis() - lastLogged)> 500)
   {
-    fileHandler.print(startingAltitude); fileHandler.print(",");
-    fileHandler.print(millis() -launchTime); fileHandler.print(",");
-    fileHandler.print(maxAltitude); fileHandler.print(",");
-    fileHandler.print(altitude); fileHandler.print(",");
-    fileHandler.print(kalmanAltitude); fileHandler.print(",");
-    fileHandler.print(pressure); fileHandler.print(",");
-    fileHandler.print(temperature); fileHandler.print(",");
-    fileHandler.print(accelX); fileHandler.print(",");
-    fileHandler.print(accelY); fileHandler.print(",");
-    fileHandler.print(accelZ); fileHandler.print(",");
-    fileHandler.print(kalmanPitch); fileHandler.print(",");
-    fileHandler.print(kalmanRoll); fileHandler.print(",");
-    fileHandler.print(accelZInertial); fileHandler.print(",");
-    fileHandler.print(kalmanVerticalVelocity); fileHandler.println(",");
+    fileHandler = SD.open("/DATA.txt", FILE_APPEND);
+    if (fileHandler == true)
+    {
+      fileHandler.print(startingAltitude); fileHandler.print(",");
+      fileHandler.print(millis() -launchTime); fileHandler.print(",");
+      fileHandler.print(maxAltitude); fileHandler.print(",");
+      fileHandler.print(altitude); fileHandler.print(",");
+      fileHandler.print(kalmanAltitude); fileHandler.print(",");
+      fileHandler.print(pressure); fileHandler.print(",");
+      fileHandler.print(temperature); fileHandler.print(",");
+      fileHandler.print(accelX); fileHandler.print(",");
+      fileHandler.print(accelY); fileHandler.print(",");
+      fileHandler.print(accelZ); fileHandler.print(",");
+      fileHandler.print(kalmanPitch); fileHandler.print(",");
+      fileHandler.print(kalmanRoll); fileHandler.print(",");
+      fileHandler.print(accelZInertial); fileHandler.print(",");
+      fileHandler.print(kalmanVerticalVelocity); fileHandler.println(",");
+    }
+    else
+    {
+      filePresent = false;
+    }
+    fileHandler.close();
+
+    lastLogged = millis();
   }
-  else
-  {
-    filePresent = false;
-  }
-  fileHandler.close();
   
   
 }
