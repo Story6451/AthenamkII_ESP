@@ -1,4 +1,5 @@
-#include <ESP32Servo.h>
+//#include <ESP32Servo.h>
+#include <Servo.h>
 #include <LPS.h>
 #include <MyLSM6.h>
 #include <BasicLinearAlgebra.h>
@@ -9,6 +10,7 @@ using namespace BLA;
 
 const uint8_t warningLED = 1;
 const float timestep = 0.001;
+const float apogeeSensitivity = 0.05;
 
 float kalmanAltitude, kalmanVerticalVelocity;
 BLA::Matrix<2, 2, float> sstateTransitionMatrix;
@@ -106,9 +108,9 @@ void SDCheck()
 
 void ServoSetup()
 {
-  servo.attach(4);
+  //servo.attach(4);
   delay(500);
-  servo.write(0);
+  servo.write(3, 0);
 }
 
 void ReadBarometer()
@@ -343,11 +345,11 @@ void loop()
       }
 
       
-      if ((kalmanAltitude < (maxAltitude - 0.2)) && ((kalmanVerticalVelocity < 1)))
+      if ((kalmanAltitude < (maxAltitude - 0.05)) && ((kalmanVerticalVelocity < 1)))
       {
         apogee = true;
 
-        servo.write(90);
+        servo.write(3, 180);
       }
     }
     else if (accelZ > 1.5)
