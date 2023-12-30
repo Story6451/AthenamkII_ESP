@@ -110,7 +110,7 @@ void ServoSetup()
 {
   //servo.attach(4);
   delay(500);
-  servo.write(3, 0);
+  servo.write(2, 180);
 }
 
 void ReadBarometer()
@@ -354,7 +354,7 @@ void loop()
       {
         apogee = true;
 
-        servo.write(3, 180);
+        servo.write(2, 0);
       }
     }
     else if (accelZ > 1.5)
