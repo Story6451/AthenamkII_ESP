@@ -156,9 +156,14 @@ void DefineMatrices()
 
 void setup() 
 {
+  
+
   pinMode(warningLED, OUTPUT);
   digitalWrite(warningLED, LOW);
+  
   Serial.begin(9600);
+  Serial.setTxTimeoutMs(0);
+
   Wire.begin();
   PeripheralInitialisation();
   ReadBarometer();
@@ -236,8 +241,9 @@ void PrintData()
 void LogData()
 {
   
-  if ((millis() - lastLogged)> 500)
+  if ((millis() - lastLogged)> 100)
   {
+    digitalWrite(warningLED, HIGH);
     fileHandler = SD.open("/DATA.txt", FILE_APPEND);
     if (fileHandler == true)
     {
@@ -264,7 +270,7 @@ void LogData()
 
     lastLogged = millis();
   }
-  
+  digitalWrite(warningLED, LOW);
   
 }
 
@@ -313,6 +319,8 @@ void loop()
 {
   if (error == false)
   {
+
+
 
     ReadIMU();
     ReadBarometer();
@@ -368,7 +376,7 @@ void loop()
       }
     }
 
-    while ((micros() - loopTimer) < timestep * 1000000);
+    while ((micros() - loopTimer) < (timestep * 1000000));
     {
       loopTimer = micros();
     }
