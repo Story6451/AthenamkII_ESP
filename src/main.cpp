@@ -154,9 +154,36 @@ void DefineMatrices()
   };
 }
 
+void LogData()
+{
+  digitalWrite(warningLED, HIGH);
+  fileHandler = SD.open("/DATA.txt", FILE_APPEND);
+  if (fileHandler == true)
+  {
+    fileHandler.print(startingAltitude); fileHandler.print(",");
+    fileHandler.print(millis() -launchTime); fileHandler.print(",");
+    fileHandler.print(maxAltitude); fileHandler.print(",");
+    fileHandler.print(altitude); fileHandler.print(",");
+    fileHandler.print(kalmanAltitude); fileHandler.print(",");
+    fileHandler.print(pressure); fileHandler.print(",");
+    fileHandler.print(temperature); fileHandler.print(",");
+    fileHandler.print(accelX); fileHandler.print(",");
+    fileHandler.print(accelY); fileHandler.print(",");
+    fileHandler.print(accelZ); fileHandler.print(",");
+    fileHandler.print(kalmanPitch); fileHandler.print(",");
+    fileHandler.print(kalmanRoll); fileHandler.print(",");
+    fileHandler.print(accelZInertial); fileHandler.print(",");
+    fileHandler.print(kalmanVerticalVelocity); fileHandler.println(",");
+  }
+  else
+  {
+    filePresent = false;
+  }
+  fileHandler.close();
+}
+
 void setup() 
 {
-  
 
   pinMode(warningLED, OUTPUT);
   digitalWrite(warningLED, LOW);
@@ -170,9 +197,6 @@ void setup()
   SDCheck();
   ServoSetup();
   DefineMatrices();
-
-
-
 
   if (error == true)
   {
@@ -199,6 +223,9 @@ void setup()
   Serial.println("Verical Velocity/ms^-1");
 
   startingAltitude = altitude;
+
+  LogData();
+  digitalWrite(warningLED, LOW);
 }
 
 void ReadIMU()
@@ -238,41 +265,6 @@ void PrintData()
   Serial.print(kalmanVerticalVelocity); Serial.println("m/s ");
 }
 
-void LogData()
-{
-  
-  if ((millis() - lastLogged)> 100)
-  {
-    digitalWrite(warningLED, HIGH);
-    fileHandler = SD.open("/DATA.txt", FILE_APPEND);
-    if (fileHandler == true)
-    {
-      fileHandler.print(startingAltitude); fileHandler.print(",");
-      fileHandler.print(millis() -launchTime); fileHandler.print(",");
-      fileHandler.print(maxAltitude); fileHandler.print(",");
-      fileHandler.print(altitude); fileHandler.print(",");
-      fileHandler.print(kalmanAltitude); fileHandler.print(",");
-      fileHandler.print(pressure); fileHandler.print(",");
-      fileHandler.print(temperature); fileHandler.print(",");
-      fileHandler.print(accelX); fileHandler.print(",");
-      fileHandler.print(accelY); fileHandler.print(",");
-      fileHandler.print(accelZ); fileHandler.print(",");
-      fileHandler.print(kalmanPitch); fileHandler.print(",");
-      fileHandler.print(kalmanRoll); fileHandler.print(",");
-      fileHandler.print(accelZInertial); fileHandler.print(",");
-      fileHandler.print(kalmanVerticalVelocity); fileHandler.println(",");
-    }
-    else
-    {
-      filePresent = false;
-    }
-    fileHandler.close();
-
-    lastLogged = millis();
-  }
-  digitalWrite(warningLED, LOW);
-  
-}
 
 void Kalman1d(float kalmanState, float kalmanUncertainty, float kalmanInput, float kalmanMeasurement)
 {
@@ -344,7 +336,12 @@ void loop()
 
       if (filePresent == true)
       {
-        LogData();
+        if ((millis() - lastLogged)> 100)
+        {
+          LogData();
+          lastLogged = millis();
+        }
+        digitalWrite(warningLED, LOW);
       }
 
       if (kalmanAltitude > maxAltitude)
