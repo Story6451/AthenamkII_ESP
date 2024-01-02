@@ -1,4 +1,3 @@
-//#include <ESP32Servo.h>
 #include <Servo.h>
 #include <LPS.h>
 #include <MyLSM6.h>
@@ -309,76 +308,72 @@ void kalman2d()
 uint64_t loopTimer = 0;
 void loop() 
 {
-  if (error == false)
+
+  ReadIMU();
+  ReadBarometer();
+
+
+  Kalman1d(kalmanRoll, kalmanUncertaintyRoll, rollRate, roll);
+  kalmanRoll = kalman1DOutput[0];
+  kalmanUncertaintyRoll = kalman1DOutput[1];
+  Kalman1d(kalmanPitch, kalmanUncertaintyPitch, pitchRate, pitch);
+  kalmanPitch = kalman1DOutput[0];
+  kalmanUncertaintyPitch = kalman1DOutput[1];
+
+  accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
+  accelZInertial = (accelZInertial - 1) * 9.81;
+  kalman2d();
+
+  if (launched == true)
   {
+    PrintData();
 
 
-
-    ReadIMU();
-    ReadBarometer();
-
-
-    Kalman1d(kalmanRoll, kalmanUncertaintyRoll, rollRate, roll);
-    kalmanRoll = kalman1DOutput[0];
-    kalmanUncertaintyRoll = kalman1DOutput[1];
-    Kalman1d(kalmanPitch, kalmanUncertaintyPitch, pitchRate, pitch);
-    kalmanPitch = kalman1DOutput[0];
-    kalmanUncertaintyPitch = kalman1DOutput[1];
-
-    accelZInertial = -sin(pitch * 3.142/180) * accelX + cos(pitch * 3.142/180) * sin(roll * 3.142/180) * accelY + cos(pitch * 3.142/180) * cos(roll * 3.142/180) * accelZ;
-    accelZInertial = (accelZInertial - 1) * 9.81;
-    kalman2d();
-
-    if (launched == true)
+    if (filePresent == true)
     {
-      PrintData();
-
-
-      if (filePresent == true)
+      if ((millis() - lastLogged)> 100)
       {
-        if ((millis() - lastLogged)> 100)
-        {
-          LogData();
-          lastLogged = millis();
-        }
-        digitalWrite(warningLED, LOW);
+        LogData();
+        lastLogged = millis();
       }
-
-      if (kalmanAltitude > maxAltitude)
-      {
-        maxAltitude = kalmanAltitude;
-      }
-
-      
-      if ((kalmanAltitude < (maxAltitude - apogeeSensitivity)) && ((kalmanVerticalVelocity < 1)))
-      {
-        apogee = true;
-
-        servo.write(2, 0);
-      }
-    }
-    else if (accelZ > 1.5)
-    {
-      launched = true;
-      launchTime = millis();
-      startingAltitude = altitude;
-
-      if ((kalmanAltitude > 1000) || (kalmanAltitude < -1000))
-      {
-        error = true;
-      }
-      if ((kalmanVerticalVelocity > 400) || (kalmanVerticalVelocity < -400))
-      {
-        error = true;
-      }
+      digitalWrite(warningLED, LOW);
     }
 
-    while ((micros() - loopTimer) < (timestep * 1000000));
+    if (kalmanAltitude > maxAltitude)
     {
-      loopTimer = micros();
+      maxAltitude = kalmanAltitude;
+    }
+
+    
+    if ((kalmanAltitude < (maxAltitude - apogeeSensitivity)) && ((kalmanVerticalVelocity < 1)))
+    {
+      apogee = true;
+
+      servo.write(2, 0);
     }
   }
-  else
+  else if (accelZ > 1.5)
+  {
+    launched = true;
+    launchTime = millis();
+    startingAltitude = altitude;
+
+    if ((kalmanAltitude > 1000) || (kalmanAltitude < -1000))
+    {
+      error = true;
+    }
+    if ((kalmanVerticalVelocity > 400) || (kalmanVerticalVelocity < -400))
+    {
+      error = true;
+    }
+  }
+
+  while ((micros() - loopTimer) < (timestep * 1000000));
+  {
+    loopTimer = micros();
+  }
+
+  if (error == true)
   {
     digitalWrite(warningLED, HIGH);
     Serial.println("ERROR");
